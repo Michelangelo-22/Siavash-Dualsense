@@ -18,3 +18,4 @@ assets/frames-ergo/
 .DS_Store
 Thumbs.db
 desktop.ini
+.tools/
