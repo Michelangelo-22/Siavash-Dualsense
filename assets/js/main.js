@@ -195,15 +195,37 @@
     nav.classList.toggle('on-light', light);
     if (shell) shell.classList.toggle('on-light', light);
   };
-  let ticking = false;
-  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { probe(); ticking = false; }); } }, { passive: true });
+  // Reading the colour under the island costs a hit test plus a style walk up the tree, so it runs
+  // at most every 120 ms rather than on every scroll frame; the value rarely changes that fast.
+  let probeAt = 0, ticking = false;
+  const scheduleProbe = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      const now = performance.now();
+      if (now - probeAt < 120) return;
+      probeAt = now;
+      probe();
+    });
+  };
+  addEventListener('scroll', scheduleProbe, { passive: true });
   addEventListener('resize', () => { probe(); lens(); });
   document.fonts && document.fonts.ready.then(lens);
   probe();
 
-  // Video behaviour: hero plays once, CTA loop only runs while visible, reduced motion = posters only
+  // Video behaviour: hero plays once, CTA loop only runs while visible, reduced motion = posters only.
+  // The hero clip is ~18 MB: it stays on its poster until the page has loaded and the browser is idle,
+  // so the first paint and the first scroll never compete with it for bandwidth or decode time.
   const hv = document.getElementById('heroVideo');
-  if ((reduce || !autoplay) && hv) { hv.removeAttribute('autoplay'); hv.pause(); }
+  if (hv) {
+    if (reduce || !autoplay) { hv.removeAttribute('autoplay'); hv.pause(); }
+    else {
+      const startHero = () => { hv.preload = 'auto'; hv.play().catch(() => {}); };
+      const idle = window.requestIdleCallback || (fn => setTimeout(fn, 400));
+      addEventListener('load', () => idle(startHero, { timeout: 2000 }), { once: true });
+    }
+  }
 
   // Section clips: data-play="once" plays when scrolled into view and holds its last frame; "loop" repeats only while visible
   const clips = [...document.querySelectorAll('video[data-play]')];
@@ -244,11 +266,24 @@
       if (f > 0.02 && b !== ia && ready(b) && !isJump(ia, b)) { ctx.globalAlpha = f; ctx.drawImage(frames[b], 0, 0, cvs.width, cvs.height); ctx.globalAlpha = 1; }
       for (let k = 1; k <= 3; k++) { const im = frames[Math.min(total - 1, a + k)]; im && im.decode().catch(() => {}); }
     };
+    const frameSrc = i => `${cvs.dataset.path}${String(i + 1).padStart(4, '0')}.webp${cvs.dataset.v ? '?v=' + cvs.dataset.v : ''}`;
     const load = () => {
       if (started) return; started = true;
-      for (let i = 0; i < total; i++) { const im = new Image(); im.decoding = 'async'; im.src = `${cvs.dataset.path}${String(i + 1).padStart(4, '0')}.webp${cvs.dataset.v ? '?v=' + cvs.dataset.v : ''}`; frames.push(im); }
+      for (let i = 0; i < total; i++) { const im = new Image(); im.decoding = 'async'; frames.push(im); }
       const first = () => { cvs.width = frames[0].naturalWidth; cvs.height = frames[0].naturalHeight; last = ''; draw(); };
-      frames[0].complete && frames[0].naturalWidth ? first() : (frames[0].onload = first);
+      // Four requests in flight at a time: asking for all ~120 frames at once starves the page of
+      // bandwidth and makes the first scroll of the pinned scene stutter.
+      let next = 0, active = 0;
+      const pump = () => {
+        while (active < 4 && next < total) {
+          const i = next++, im = frames[i];
+          active++;
+          const done = () => { active--; if (i === 0 && im.naturalWidth) first(); pump(); };
+          im.onload = done; im.onerror = done;
+          im.src = frameSrc(i);
+        }
+      };
+      pump();
     };
     new IntersectionObserver((es, io) => { if (es.some(e => e.isIntersecting)) { load(); io.disconnect(); } }, { rootMargin: '1200px 0px' }).observe(cvs);
     return { total, draw };
@@ -281,7 +316,7 @@
         const scrolled = scrollY > 10;
         nav.classList.toggle('scrolled', scrolled);
         if (row) row.classList.toggle('is-scrolled', scrolled);
-        probe();
+        scheduleProbe();
       };
       lenis.on('scroll', syncNav);
       syncNav();

@@ -42,7 +42,7 @@
     <?php endforeach; ?>
   </dl>
     <div class="vid-card ports-card" aria-hidden="true">
-      <video muted loop playsinline preload="metadata" data-play="loop" poster="<?= e(asset_url('assets/images/ports-poster.jpg')) ?>"><source src="<?= e(asset_url('assets/video/ports.mp4')) ?>" type="video/mp4"></video>
+      <video muted loop playsinline preload="none" data-play="loop" poster="<?= e(asset_url('assets/images/ports-poster.jpg')) ?>"><source src="<?= e(asset_url('assets/video/ports.mp4')) ?>" type="video/mp4"></video>
     </div>
   </div>
 </section>

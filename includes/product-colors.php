@@ -17,7 +17,7 @@
 </section>
 
 <section class="cta cta-video" id="buy">
-  <video class="cta-bg" muted playsinline preload="auto" data-play="once" poster="<?= e(asset_url('assets/images/duo-poster.jpg')) ?>" aria-hidden="true" tabindex="-1">
+  <video class="cta-bg" muted playsinline preload="none" data-play="once" poster="<?= e(asset_url('assets/images/duo-poster.jpg')) ?>" aria-hidden="true" tabindex="-1">
     <source src="<?= e(asset_url('assets/video/duo-loop.mp4')) ?>" type="video/mp4">
   </video>
   <div class="cta-shade"></div>

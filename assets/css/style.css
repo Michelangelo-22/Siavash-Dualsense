@@ -13,8 +13,8 @@ a{color:inherit;text-decoration:none}
 .skip{position:fixed;inset-inline-start:12px;top:12px;z-index:200;background:#fff;color:#003791;padding:8px 12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);transform:translateY(-200%);transition:transform .2s ease}
 .skip:focus{transform:none}
 
-.nav{position:fixed;inset:0 0 auto;z-index:50;transition:background .4s,backdrop-filter .4s,box-shadow .4s}
-.nav.scrolled{background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.nav{position:fixed;inset:0 0 auto;z-index:50;transition:background .4s,box-shadow .4s}
+.nav.scrolled{background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(14px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .nav nav{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:auto;height:52px;padding:0 var(--pad)}
 .brand{font-weight:600;letter-spacing:-.01em}
 .nav ul{display:flex;gap:clamp(18px,3vw,36px);list-style:none;font-size:13px;align-items:center}
@@ -112,7 +112,7 @@ h2{font-size:clamp(36px,6vw,80px)}
 /* ===== Cinematic layer: video hero, scrubbed flight, looping finale ===== */
 .nav{color:#fff}.nav.scrolled{background:rgba(0,0,0,.6);box-shadow:0 1px 0 rgba(255,255,255,.1)}
 .nav ul a{color:#fff}.burger span{background:#fff}
-.hero-video,.flight-video,.cta-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hero-video,.flight-video,.cta-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;will-change:transform}
 
 .hero-cine{position:relative;overflow:hidden;justify-content:center;background:#000;color:#fff}
 .hero-cine>:not(.hero-video):not(.hero-shade){position:relative;z-index:2}
