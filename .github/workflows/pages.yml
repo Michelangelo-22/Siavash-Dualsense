@@ -29,15 +29,16 @@ jobs:
         run: |
           set -euo pipefail
           REPO="${GITHUB_REPOSITORY#*/}"
-          if [ "$REPO" = "${GITHUB_REPOSITORY_OWNER}.github.io" ]; then
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          if [ "$REPO" = "$OWNER.github.io" ]; then
             BASE=""
           else
             BASE="/$REPO"
           fi
           mkdir -p dist
-          DS_PAGES_HOST="${GITHUB_REPOSITORY_OWNER}.github.io" DS_PAGES_PATH="$BASE" \
+          DS_PAGES_HOST="$OWNER.github.io" DS_PAGES_PATH="$BASE" \
             php tools/build-static.php en dist/index.html
-          DS_PAGES_HOST="${GITHUB_REPOSITORY_OWNER}.github.io" DS_PAGES_PATH="$BASE" \
+          DS_PAGES_HOST="$OWNER.github.io" DS_PAGES_PATH="$BASE" \
             php tools/build-static.php fa dist/fa.html
 
       - name: Copy static assets
@@ -47,8 +48,8 @@ jobs:
           touch dist/.nojekyll
           du -sh dist
 
-      # Fails here until Settings -> Pages -> Source is set to "GitHub Actions": the workflow
-      # token is not allowed to create the Pages site itself.
+      # Verifies the Pages configuration and exposes base_path; the site itself is enabled once
+      # in Settings -> Pages with Source = "GitHub Actions".
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
