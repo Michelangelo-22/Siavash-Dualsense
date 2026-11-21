@@ -1,0 +1,20 @@
+# Freebuff workspace markers
+.freebuff/
+
+# Build output from tools/build-static.php
+.dist/
+dist/
+
+# Design screenshots kept locally, not part of the site
+preview-*.png
+
+# Source footage the page never references (the site uses hero.mp4, duo-loop.mp4 and ports.mp4)
+assets/video/flight.mp4
+assets/video/haptics.mp4
+assets/video/triggers.mp4
+assets/frames-ergo/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

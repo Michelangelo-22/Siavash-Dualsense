@@ -1,0 +1,64 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring
+
+      - name: Render both language pages
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY#*/}"
+          if [ "$REPO" = "${GITHUB_REPOSITORY_OWNER}.github.io" ]; then
+            BASE=""
+          else
+            BASE="/$REPO"
+          fi
+          mkdir -p dist
+          DS_PAGES_HOST="${GITHUB_REPOSITORY_OWNER}.github.io" DS_PAGES_PATH="$BASE" \
+            php tools/build-static.php en dist/index.html
+          DS_PAGES_HOST="${GITHUB_REPOSITORY_OWNER}.github.io" DS_PAGES_PATH="$BASE" \
+            php tools/build-static.php fa dist/fa.html
+
+      - name: Copy static assets
+        run: |
+          set -euo pipefail
+          cp -R assets dist/assets
+          touch dist/.nojekyll
+          du -sh dist
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
