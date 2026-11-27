@@ -66,6 +66,9 @@ jobs:
         run: |
           set -euo pipefail
           cp -R assets dist/assets
+          # The PNGs are only masters for tools/build-media.py; the page serves the derived .webp and
+          # .jpg files, so the masters stay in the repository but never in a published copy.
+          rm -f dist/assets/images/{haptics-poster,triggers-poster,ports-poster,dualsense-front,dualsense-triggers,dualsense-angle}.png
           touch dist/.nojekyll
           du -sh dist
 
@@ -82,6 +85,7 @@ jobs:
           DS_PAGES_HOST="$CF_PROJECT.pages.dev" DS_PAGES_PATH="" \
             php tools/build-static.php fa dist-cf/fa.html
           cp -R assets dist-cf/assets
+          rm -f dist-cf/assets/images/{haptics-poster,triggers-poster,ports-poster,dualsense-front,dualsense-triggers,dualsense-angle}.png
           touch dist-cf/.nojekyll
           # Asset URLs already carry ?v=<mtime>, so a year of caching is safe; the font is the one
           # reference without a stamp, so it revalidates weekly instead.
