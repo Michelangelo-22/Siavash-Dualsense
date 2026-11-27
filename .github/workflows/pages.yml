@@ -30,16 +30,31 @@ jobs:
           set -euo pipefail
           REPO="${GITHUB_REPOSITORY#*/}"
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          if [ "$REPO" = "$OWNER.github.io" ]; then
+          # Serving on your own domain is one setting away: put the bare host (no scheme, no slash)
+          # in the repository variable CUSTOM_DOMAIN under Settings -> Secrets and variables ->
+          # Actions -> Variables. The share URLs then use that host and a CNAME file is published,
+          # which is what GitHub Pages (and a Cloudflare proxy in front of it) needs. Leave the
+          # variable empty and the build stays on the github.io address exactly as before.
+          DOMAIN="${{ vars.CUSTOM_DOMAIN }}"
+          if [ -n "$DOMAIN" ]; then
+            HOST="$DOMAIN"
             BASE=""
           else
-            BASE="/$REPO"
+            HOST="$OWNER.github.io"
+            if [ "$REPO" = "$OWNER.github.io" ]; then
+              BASE=""
+            else
+              BASE="/$REPO"
+            fi
           fi
           mkdir -p dist
-          DS_PAGES_HOST="$OWNER.github.io" DS_PAGES_PATH="$BASE" \
+          DS_PAGES_HOST="$HOST" DS_PAGES_PATH="$BASE" \
             php tools/build-static.php en dist/index.html
-          DS_PAGES_HOST="$OWNER.github.io" DS_PAGES_PATH="$BASE" \
+          DS_PAGES_HOST="$HOST" DS_PAGES_PATH="$BASE" \
             php tools/build-static.php fa dist/fa.html
+          if [ -n "$DOMAIN" ]; then
+            printf '%s\n' "$DOMAIN" > dist/CNAME
+          fi
 
       - name: Copy static assets
         run: |
