@@ -220,7 +220,8 @@
   // Video quality: the page ships a 720p clip for phones, and a phone whose link is genuinely fast
   // also gets the 1080p one. The rate comes from downloading one small sample file in full: a ranged
   // read of the HD clip looks cheaper, but a host that ignores Range streams the whole 5 MB clip and
-  // the aborted read measures almost nothing. The HD clip runs at about 5 Mbit/s, so the bar sits a
+  // the aborted read measures almost nothing. One sample decides it — no second try, no best-of-two,
+  // so a slow link is never rounded up to HD. The HD clip runs at about 5 Mbit/s, so the bar sits a
   // little above that. Desktop keeps its current clip. Reduced motion never starts a clip, so it
   // never measures.
   const phone = matchMedia('(max-width: 900px)').matches;
@@ -252,12 +253,7 @@
     const hvEl = document.getElementById('heroVideo');
     const url = hvEl && hvEl.dataset.speed;
     if (!url || !navigator.onLine) return 0;
-    const first = await sampleOnce(url, 5000);
-    if (first >= 6) return first;
-    // A cold page shares the link with its own images and clips, so the first sample can fall low;
-    // one quieter retry decides it and the faster of the two wins.
-    await new Promise(r => setTimeout(r, 1200));
-    return Math.max(first, await sampleOnce(url, 5000));
+    return sampleOnce(url, 5000);
   })());
   const quality = v => v._quality || (v._quality = (() => {
     const hd = v.dataset.hd, src = v.querySelector('source'), c = navigator.connection || {};
