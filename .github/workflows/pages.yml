@@ -22,7 +22,7 @@ jobs:
     env:
       CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CF_PROJECT: ${{ vars.CF_PAGES_PROJECT || 'siavash-dualsense' }}
+      CF_PROJECT: ${{ vars.CF_PAGES_PROJECT || 'dual-sense-introduction' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -94,6 +94,25 @@ jobs:
             Cache-Control: public, max-age=0, must-revalidate
           HEADERS
           du -sh dist-cf
+
+      # A fresh name needs a fresh project; creating it here keeps the run self-contained and
+      # harmless on every later deploy (an existing project is simply accepted).
+      - name: Ensure the Cloudflare Pages project exists
+        if: env.CF_TOKEN != ''
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects"
+          code=$(curl -sS -o /tmp/cf-project.json -w '%{http_code}' -X POST "$api" \
+            -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
+            -d "{\"name\":\"$CF_PROJECT\",\"production_branch\":\"main\"}")
+          if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+            echo "created pages project $CF_PROJECT"
+            exit 0
+          fi
+          got=$(curl -sS -o /dev/null -w '%{http_code}' "$api/$CF_PROJECT" \
+            -H "Authorization: Bearer $CF_TOKEN")
+          echo "project lookup: $got"
+          [ "$got" = "200" ]
 
       - name: Publish to Cloudflare Pages
         if: env.CF_TOKEN != ''
