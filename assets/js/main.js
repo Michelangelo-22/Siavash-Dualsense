@@ -236,8 +236,9 @@
       let got = 0;
       while (got < 262144) { const r = await reader.read(); if (r.done) break; got += r.value.length; }
       reader.cancel().catch(() => {});
-      const secs = (performance.now() - t0) / 1000;
-      return secs > 0.05 ? (got * 8) / secs / 1e6 : 0;   // megabits per second
+      if (!got) return 0;
+      const secs = Math.max((performance.now() - t0) / 1000, 0.01);   // a fast link can answer in a few ms
+      return (got * 8) / secs / 1e6;   // megabits per second
     } catch (e) { return 0; }
   })());
   const quality = v => v._quality || (v._quality = (() => {
