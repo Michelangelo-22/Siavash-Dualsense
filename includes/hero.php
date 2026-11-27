@@ -1,5 +1,5 @@
 <section class="hero hero-cine" id="top">
-  <video class="hero-video" id="heroVideo" muted playsinline preload="none" poster="<?= e(asset_url('assets/images/hero-poster.jpg')) ?>" aria-hidden="true" tabindex="-1">
+  <video class="hero-video" id="heroVideo" muted playsinline preload="none" poster="<?= e(asset_url('assets/images/hero-poster.jpg')) ?>" data-hd="<?= e(asset_url('assets/video/hero-hd.mp4')) ?>" aria-hidden="true" tabindex="-1">
     <source src="<?= e(asset_url('assets/video/hero.mp4')) ?>" type="video/mp4">
   </video>
   <div class="hero-shade"></div>

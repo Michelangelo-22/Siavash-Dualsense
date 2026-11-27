@@ -217,11 +217,44 @@
   // Video behaviour: hero plays once, CTA loop only runs while visible, reduced motion = posters only.
   // The hero clip is ~18 MB: it stays on its poster until the page has loaded and the browser is idle,
   // so the first paint and the first scroll never compete with it for bandwidth or decode time.
+  // Video quality: the page ships a 720p clip for phones, and a phone whose link is genuinely fast
+  // also gets the 1080p one. The link is measured once, with a 256 KB ranged read of the HD file, and
+  // nothing more is fetched for the test; the HD clip streams at about 5 Mbit/s, so the bar sits a
+  // little above that. Desktop keeps its current clip. Reduced motion never starts a clip, so it
+  // never measures.
+  const phone = matchMedia('(max-width: 900px)').matches;
+  let speedTest = null;
+  const linkSpeed = () => speedTest || (speedTest = (async () => {
+    const hvEl = document.getElementById('heroVideo');
+    const url = hvEl && hvEl.dataset.hd;
+    if (!url || !navigator.onLine) return 0;
+    const t0 = performance.now();
+    try {
+      const res = await fetch(url, { headers: { Range: 'bytes=0-262143' }, cache: 'no-store' });
+      if (!res.ok || !res.body) return 0;
+      const reader = res.body.getReader();
+      let got = 0;
+      while (got < 262144) { const r = await reader.read(); if (r.done) break; got += r.value.length; }
+      reader.cancel().catch(() => {});
+      const secs = (performance.now() - t0) / 1000;
+      return secs > 0.05 ? (got * 8) / secs / 1e6 : 0;   // megabits per second
+    } catch (e) { return 0; }
+  })());
+  const quality = v => v._quality || (v._quality = (() => {
+    const hd = v.dataset.hd, src = v.querySelector('source'), c = navigator.connection || {};
+    if (!phone || !hd || !src) return Promise.resolve(v);
+    if (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')) return Promise.resolve(v);
+    return linkSpeed().then(mbps => {
+      if (mbps >= 6) { src.src = hd; v.load(); }
+      return v;
+    });
+  })());
+
   const hv = document.getElementById('heroVideo');
   if (hv) {
     if (reduce || !autoplay) { hv.removeAttribute('autoplay'); hv.pause(); }
     else {
-      const startHero = () => { hv.preload = 'auto'; hv.play().catch(() => {}); };
+      const startHero = () => quality(hv).then(() => { hv.preload = 'auto'; hv.play().catch(() => {}); });
       const idle = window.requestIdleCallback || (fn => setTimeout(fn, 400));
       addEventListener('load', () => idle(startHero, { timeout: 2000 }), { once: true });
     }
@@ -233,7 +266,7 @@
   else {
     clips.forEach(v => v.addEventListener('ended', () => { v.dataset.done = '1'; const c = v.closest('.cta'); c && c.classList.add('is-ended'); }));
     const cio = new IntersectionObserver(es => es.forEach(({ target: v, isIntersecting }) => {
-      if (isIntersecting) { if (!v.dataset.done) v.play().catch(() => {}); }
+      if (isIntersecting) { if (!v.dataset.done) quality(v).then(() => { if (!v.dataset.done) v.play().catch(() => {}); }); }
       else if (v.dataset.play === 'loop') v.pause();
     }), { threshold: 0.35 });
     clips.forEach(v => cio.observe(v));
