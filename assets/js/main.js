@@ -218,28 +218,46 @@
   // The hero clip is ~18 MB: it stays on its poster until the page has loaded and the browser is idle,
   // so the first paint and the first scroll never compete with it for bandwidth or decode time.
   // Video quality: the page ships a 720p clip for phones, and a phone whose link is genuinely fast
-  // also gets the 1080p one. The link is measured once, with a 256 KB ranged read of the HD file, and
-  // nothing more is fetched for the test; the HD clip streams at about 5 Mbit/s, so the bar sits a
+  // also gets the 1080p one. The rate comes from downloading one small sample file in full: a ranged
+  // read of the HD clip looks cheaper, but a host that ignores Range streams the whole 5 MB clip and
+  // the aborted read measures almost nothing. The HD clip runs at about 5 Mbit/s, so the bar sits a
   // little above that. Desktop keeps its current clip. Reduced motion never starts a clip, so it
   // never measures.
   const phone = matchMedia('(max-width: 900px)').matches;
   let speedTest = null;
+  const sampleOnce = (url, limitMs) => new Promise(resolve => {
+    const ctrl = new AbortController();
+    const t0 = performance.now();
+    const settle = got => {
+      clearTimeout(timer);
+      const secs = Math.max((performance.now() - t0) / 1000, 0.01);   // a fast link can answer in a few ms
+      resolve(got ? (got * 8) / secs / 1e6 : 0);   // megabits per second
+    };
+    const timer = setTimeout(() => { ctrl.abort(); settle(0); }, limitMs);
+    fetch(url, { cache: 'no-store', priority: 'high', signal: ctrl.signal })
+      .then(res => {
+        if (!res.ok || !res.body) return settle(0);
+        let got = 0;
+        const reader = res.body.getReader();
+        const pump = () => reader.read().then(({ done, value }) => {
+          if (done) return settle(got);
+          got += value.length;
+          return pump();
+        }).catch(() => settle(got));
+        return pump();
+      })
+      .catch(() => settle(0));
+  });
   const linkSpeed = () => speedTest || (speedTest = (async () => {
     const hvEl = document.getElementById('heroVideo');
-    const url = hvEl && hvEl.dataset.hd;
+    const url = hvEl && hvEl.dataset.speed;
     if (!url || !navigator.onLine) return 0;
-    const t0 = performance.now();
-    try {
-      const res = await fetch(url, { headers: { Range: 'bytes=0-262143' }, cache: 'no-store' });
-      if (!res.ok || !res.body) return 0;
-      const reader = res.body.getReader();
-      let got = 0;
-      while (got < 262144) { const r = await reader.read(); if (r.done) break; got += r.value.length; }
-      reader.cancel().catch(() => {});
-      if (!got) return 0;
-      const secs = Math.max((performance.now() - t0) / 1000, 0.01);   // a fast link can answer in a few ms
-      return (got * 8) / secs / 1e6;   // megabits per second
-    } catch (e) { return 0; }
+    const first = await sampleOnce(url, 5000);
+    if (first >= 6) return first;
+    // A cold page shares the link with its own images and clips, so the first sample can fall low;
+    // one quieter retry decides it and the faster of the two wins.
+    await new Promise(r => setTimeout(r, 1200));
+    return Math.max(first, await sampleOnce(url, 5000));
   })());
   const quality = v => v._quality || (v._quality = (() => {
     const hd = v.dataset.hd, src = v.querySelector('source'), c = navigator.connection || {};
