@@ -17,6 +17,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The Cloudflare Pages mirror is optional: it stays off until the API token and account id are
+    # added as repository secrets, so the GitHub Pages deploy keeps working on its own.
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_PROJECT: ${{ vars.CF_PAGES_PROJECT || 'siavash-dualsense' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +68,40 @@ jobs:
           cp -R assets dist/assets
           touch dist/.nojekyll
           du -sh dist
+
+      # Cloudflare Pages serves the site from the root of its own free *.pages.dev address and is
+      # cached much longer than GitHub Pages allows, so it gets its own render (absolute share URLs
+      # for that host) plus a _headers file. Skipped entirely while the secrets are missing.
+      - name: Render the Cloudflare Pages copy
+        if: env.CF_TOKEN != ''
+        run: |
+          set -euo pipefail
+          mkdir -p dist-cf
+          DS_PAGES_HOST="$CF_PROJECT.pages.dev" DS_PAGES_PATH="" \
+            php tools/build-static.php en dist-cf/index.html
+          DS_PAGES_HOST="$CF_PROJECT.pages.dev" DS_PAGES_PATH="" \
+            php tools/build-static.php fa dist-cf/fa.html
+          cp -R assets dist-cf/assets
+          touch dist-cf/.nojekyll
+          # Asset URLs already carry ?v=<mtime>, so a year of caching is safe; the font is the one
+          # reference without a stamp, so it revalidates weekly instead.
+          cat > dist-cf/_headers <<'HEADERS'
+          /assets/*
+            Cache-Control: public, max-age=31536000, immutable
+          /assets/fonts/*
+            Cache-Control: public, max-age=604800
+          /*.html
+            Cache-Control: public, max-age=0, must-revalidate
+          HEADERS
+          du -sh dist-cf
+
+      - name: Publish to Cloudflare Pages
+        if: env.CF_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist-cf --project-name=${{ env.CF_PROJECT }} --branch=main
 
       # Verifies the Pages configuration and exposes base_path; the site itself is enabled once
       # in Settings -> Pages with Source = "GitHub Actions".

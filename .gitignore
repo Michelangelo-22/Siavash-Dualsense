@@ -4,6 +4,7 @@
 # Build output from tools/build-static.php
 .dist/
 dist/
+dist-cf/
 
 # Design screenshots kept locally, not part of the site
 preview-*.png
